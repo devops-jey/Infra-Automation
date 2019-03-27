@@ -1,0 +1,58 @@
+---
+  2 - hosts: all
+  3   tasks:
+  4     - name: Display Current disk before scan
+  5       shell: multipath -ll | grep -i mpath | awk '{print $2}' | sed -e 's\(\\g' | sed -e 's\)\\g'
+  6       register: before_scan
+  7       changed_when: False
+  8       retries: 3
+  9       delay: 3
+ 10       until: result.rc == 0
+ 11     - debug: msg="{{before_scan.stdout}}"
+ 12
+ 13     - name: Scanning Disk
+ 14       shell: 'for i in $(ls /sys/class/scsi_host/host*/scan) ; do echo $i  ; echo "- - -" > $i ; sleep 3 ; done'
+ 15       register: Scan_executed
+ 16       changed_when: False
+ 17       retries: 3
+ 18       delay: 3
+ 19       until: result.rc == 0
+ 20     - debug: msg= "Scanned output on {{scanned_disks.stdout}}"
+ 21
+ 22     - name: Display Current disk after scan
+ 23       shell: multipath -ll | grep -i mpath | awk '{print $2}' | sed -e 's\(\\g' | sed -e 's\)\\g'
+ 24       register: after_scan
+ 25       changed_when: False
+ 26       retries: 3
+ 27       delay: 3
+ 28       until: result.rc == 0
+ 29     - debug: msg="{{after_scan.stdout}}"
+ 30
+ 31     - name: Identify the newly added disk by difference
+ 32       set_fact:
+ 33         new_disk: "{{before_scan.stdout | difference(after_scan.stdout)}}"
+ 34       changed_when: False
+ 35     - debug: msg="{{new_disk}}"
+ 36
+ 37     - name: Copying to Target server
+ 38       copy:
+ 39         src: /tmp/test1
+ 40         dest: /tmp/asm_disk_validator.py
+ 41         owner: root
+ 42         group: root
+ 43         mode: 0755
+ 44       register: file_copied
+ 45       when: new_disk | length > 0
+ 46     - debug: msg= "output contains {{file_copied.dest}} is success"
+ 47
+ 48     - name: execute pyhtonvalidate command
+ 49       shell: python /tmp/asm_disk_validator.py
+ 50       register: validate_out
+ 51       when: file_copied.rc == 0
+           - debug: msg= "The output of the validator script {{validate_out.stdout_lines}}"
+ 53
+ 54     - name: execute pyhtonvalidate command
+ 55       shell: python 
+ 56       register: manage_out
+ 57       when: validate_out.rc == 0
+ 58     - debug: msg= "The output of the validator script {{manage_out.stdout_lines}}"

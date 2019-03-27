@@ -1,0 +1,26 @@
+LVM Creation for one VG and one LV creation.
+---
+ - hosts: all
+   tasks:
+        - name: VG_create
+          lvg:
+               vg: test_vg
+               pvs: /dev/sdb
+
+        - name: LV_create
+          lvol:
+               vg: test_vg
+               lv: test_lv
+               size: 1G
+
+        - name: create file system for test_lv
+          filesystem:
+                fstype: xfs
+                dev: /dev/test_vg/test_lv
+
+        - name: mount test_lv logical volumes
+          mount:
+                name: /test_lv
+                src: /dev/test_vg/test_lv
+                fstype: xfs
+                state: mounted
